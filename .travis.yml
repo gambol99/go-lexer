@@ -1,0 +1,16 @@
+env:
+  global:
+  - AUTHOR_EMAIL=gambol99@gmail.com
+  - REGISTRY_USERNAME=gambol99+rebotbuilder
+  - REGISTRY=quay.io
+  secure: augTdQ8jO3dwFC3F95vafN7dFDhVXu5e3a1mQSXINit+MWjY5cuMHS8ZZeVHUTkcnFPqRE9PZy73HRo3+K2HdKr7yJfrCMVe9DC2nX3xKWYsQsRAFn+XU2vXXxBt+dQxWi6rTVp9XEUmRnwUGfoX6SqBTRuZlEN9WcgQ8njqO6lXes5zguVsmBJ8uV45khxJrRYfbP43Haca8G7L4ajmJdK+uh47lYqYiyIGIe3+6Af0csYqR3FhVFoSBTrFIKZuedRSBnUSFOvSlpZ4mJ4YamQqDsKWCkECQMcfBWegyXi2+aUIHZNAn/BA3dVZqgeOF2SjqurQvgxqVxYmWNuqCh0bqVqNzEldnFKc+A8157WxU8M5tCm9CC0+2FGkR6ovEWo1C8Unr7V8bL+kwTO3IE7Txp+643l4vg4PtxRjFI5cELdIqhOK9nN+BeQ0Fy68lBF9C4OA8k90d8frW82bvAK8UAoTB80gOWOFfYd7ANGfqP4Y6QhTeB/U1OdAsZNqtFi37zonesYUFyCN9bG7lc56GuEW53lHowDEDfhUPwB9J5dk/0Fgqr6hekNwvHThFlNE4tlj2k5GccLyc2g8gMjzmKWgQ/IoC0Bo3pxAePFN32YCkHmEOMBbTPeoZemyWWsgBrDxZ5490n+oXYbb5ZmD1S+v+PHk7IBJwyrjra8=
+language: go
+go:
+- 1.6
+- 1.7
+script:
+- make all
+- if [[ TRAVIS_BRANCH == "master" ]]; then
+    make coveralls;
+    goveralls -service=travis-ci;
+  fi

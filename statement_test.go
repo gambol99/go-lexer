@@ -31,6 +31,13 @@ func TestStatementAddWhenEmpty(t *testing.T) {
 	assert.Nil(t, st.Expression.Next)
 }
 
+func TestGetCurrentExpression(t *testing.T) {
+	st := new(Statement)
+	assert.NotNil(t, st)
+	assert.Nil(t, st.Last())
+	assert.NotNil(t, st.getCurrentExpression())
+}
+
 func TestStatementAdd(t *testing.T) {
 	st := new(Statement)
 	st.Add()
@@ -67,7 +74,8 @@ func TestStatementSizeWhenEmpty(t *testing.T) {
 
 func TestStatementSize(t *testing.T) {
 	st := new(Statement)
-	for i := 1; i < 5; i++ {
+	for i := 0; i < 5; i++ {
 		st.Add().Match = fmt.Sprintf("test%d", i)
 	}
+	assert.Equal(t, 5, st.Size())
 }

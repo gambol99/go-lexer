@@ -1,7 +1,7 @@
 NAME=go-lexer
 AUTHOR=gambol99
 ROOT_DIR=${PWD}
-GOVERSION=1.6.3
+GOVERSION=1.7.1
 GIT_SHA=$(shell git --no-pager describe --always --dirty)
 DEPS=$(shell go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
 PACKAGES=$(shell go list ./...)
@@ -27,7 +27,8 @@ authors:
 
 deps:
 	@echo "--> Installing build dependencies"
-	@go get github.com/tools/godep
+	@go get github.com/stretchr/testify/assert
+	@go get github.com/davecgh/go-spew/spew
 
 vet:
 	@echo "--> Running go vet $(VETARGS) ."
@@ -47,8 +48,9 @@ gofmt:
 	@echo "--> Running gofmt check"
 	@gofmt -s -l *.go \
 	    | grep -q \.go ; if [ $$? -eq 0 ]; then \
-            echo "You need to runn the make format, we have file unformatted"; \
+            echo "You need to run the make format, we have file unformatted"; \
             gofmt -s -l *.go; \
+						exit 1; \
 	    fi
 
 format:
@@ -68,13 +70,18 @@ cover:
 	@echo "--> Running go cover"
 	@go test --cover
 
-all:
+coveralls:
+	@echo "--> Submitting to Coveralls"
+	@go get github.com/mattn/goveralls
+
+all: deps
 	@echo "--> Running all the tests"
 	@$(MAKE) test
 	@$(MAKE) gofmt
 	@$(MAKE) vet
 	@$(MAKE) cover
 
-test: deps
+test:
 	@echo "--> Running the tests"
 	@go test -v
+	@$(MAKE) cover

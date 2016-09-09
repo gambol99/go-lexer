@@ -15,19 +15,3 @@ limitations under the License.
 */
 
 package lex
-
-// Evaluate is responsible for evaluating the expression
-func (e *Expression) Evaluate(input []interface{}) (bool, error) {
-	var matched bool
-
-	// step: first we need to convert the expression match
-
-	return matched, nil
-}
-
-// String returns a string representation of the expression
-/*
-func (e *Expression) String() string {
-	return fmt.Sprintf("%s %s %v", e.Selector, e.Operation.String(), e.Match)
-}
-*/

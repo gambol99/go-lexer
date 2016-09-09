@@ -190,6 +190,16 @@ func TestTokenParserTrimSpace(t *testing.T) {
 			},
 		},
 		{
+			Input: "test =~ /test1",
+			Tokens: []Token{
+				{ID: Entry},
+				{ID: Expr, Value: "test"},
+				{ID: LogicalRegex, Value: "=~"},
+				{ID: Match, Value: "/test1"},
+				{ID: EOF},
+			},
+		},
+		{
 			Input: "test =~ /testjdksjds/ || test >= 89",
 			Tokens: []Token{
 				{ID: Entry},

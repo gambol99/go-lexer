@@ -54,8 +54,6 @@ type Statement struct {
 	LogicalAnd bool
 	// Next is the next statement
 	Next *Statement
-	// Pres is the previous statement
-	Prev *Statement
 }
 
 // TokenID is the token type

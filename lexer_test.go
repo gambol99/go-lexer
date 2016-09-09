@@ -19,6 +19,7 @@ package lex
 import (
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,7 +43,7 @@ func TestHasListeners(t *testing.T) {
 	assert.True(t, l.haveListeners())
 }
 
-func TestParsingRulesBad(t *testing.T) {
+func TestParseRulesBad(t *testing.T) {
 	cs := []struct {
 		Input string // is the input expression
 	}{
@@ -64,7 +65,27 @@ func TestParsingRulesBad(t *testing.T) {
 	}
 }
 
-func TestLexParseOk(t *testing.T) {
+func TestParseBad(t *testing.T) {
+	cs := []struct {
+		Input string // is the input for the expression
+	}{
+		{Input: "test"},
+		{Input: "test =~ /test"},
+		{Input: "test =~ test/"},
+		{Input: "test =~ /dsd$"},
+		{Input: "test > h"},
+		{Input: "test >= djshdj"},
+		{Input: "test <= 3232ldd"},
+		{Input: "test < dsdsd"},
+	}
+	for _, c := range cs {
+		st, err := New(c.Input).Parse()
+		assert.Nil(t, st)
+		assert.Error(t, err)
+	}
+}
+
+func TestParseOk(t *testing.T) {
 	cs := []struct {
 		Input  string
 		Output *Statement
@@ -86,7 +107,7 @@ func TestLexParseOk(t *testing.T) {
 					Next: &Expression{
 						Selector:  "test",
 						Operation: GT,
-						Match:     "5",
+						Match:     5.0,
 					},
 				},
 			},
@@ -98,7 +119,7 @@ func TestLexParseOk(t *testing.T) {
 				Expression: &Expression{
 					Selector:  "test",
 					Operation: GT,
-					Match:     "19",
+					Match:     19.0,
 				},
 				Next: &Statement{
 					Expression: &Expression{
@@ -109,19 +130,32 @@ func TestLexParseOk(t *testing.T) {
 						Next: &Expression{
 							Selector:  "test",
 							Operation: GT,
-							Match:     "5",
+							Match:     5.0,
 						},
 					},
 				},
 			},
 		},
 	}
-	for _, c := range cs {
-		st, err := New(c.Input).Parse()
-		assert.NotNil(t, st)
-		if !assert.NoError(t, err) {
-			t.FailNow()
-		}
+	for i, c := range cs {
+		checkLexParse(t, i, c.Input, c.Output)
+	}
+}
+
+func TestParseWithRegex(t *testing.T) {
+	cs := []struct {
+		Input  string
+		Output *Statement
+	}{
+		{
+			Input: "test == 1",
+			Output: &Statement{
+				Expression: &Expression{Selector: "test", Operation: EQ, Match: "1"},
+			},
+		},
+	}
+	for i, c := range cs {
+		checkLexParse(t, i, c.Input, c.Output)
 	}
 }
 
@@ -160,5 +194,23 @@ func TestIsTokenBad(t *testing.T) {
 	}
 	for i, c := range cs {
 		assert.False(t, isToken(c.ID, c.Filter), "case %d, should have been false", i)
+	}
+}
+
+func checkLexParse(t *testing.T, cs int, input string, expected *Statement) {
+	actual, err := New(input).Parse()
+	if err != nil {
+		t.Errorf("case %d should not have returned an error, err: %s", cs, err)
+		return
+	}
+	if actual == nil {
+		t.Errorf("case %d did not return an statement reference", cs)
+		return
+	}
+
+	// step: compare and print if required
+	if !assert.Equal(t, expected, actual, "case %d, input: %s did not return the expected result", cs, input) {
+		t.Errorf("Actual: %s\n", spew.Sdump(actual))
+		t.Errorf("Expected: %s\n", spew.Sdump(expected))
 	}
 }

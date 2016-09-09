@@ -16,21 +16,27 @@ limitations under the License.
 
 package lex
 
-// evaluate is responsible evaluating the statement
-func (s *Statement) evaluate() (bool, error) {
-	return false, nil
-}
-
 // Add adds an expression to the statement
 func (s *Statement) Add() *Expression {
-	expr := s.Last()
-	if expr == nil {
+	if s.Expression == nil {
 		s.Expression = new(Expression)
 		return s.Expression
 	}
+
+	expr := s.Last()
 	expr.Next = new(Expression)
 
 	return expr.Next
+}
+
+// getCurrentExpression will get the last expression or add one
+func (s *Statement) getCurrentExpression() *Expression {
+	e := s.Last()
+	if e == nil {
+		return s.Add()
+	}
+
+	return e
 }
 
 // Last gets the last expression in the statement
@@ -55,9 +61,4 @@ func (s *Statement) Size() int {
 	}
 
 	return count
-}
-
-// String returns a string representation of the Statement
-func (s *Statement) String() string {
-	return ""
 }

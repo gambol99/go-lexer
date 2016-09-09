@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 )
 
 var (
@@ -64,9 +65,9 @@ func (l *Lexer) AddTokenListener(ch TokenChannel) *Lexer {
 
 // Parse is responsible for parsing the input stream
 func (l *Lexer) Parse() (*Statement, error) {
-	var previous Token // the previous token we got
+	var lastToken Token // the previous token we got
 
-	var current *Statement // a reference to the current Statement
+	var previous, current *Statement // a reference to the current Statement
 	var root *Statement
 
 	// step: parse the input stream extracting the tokens and pass through the ruleset
@@ -77,34 +78,66 @@ func (l *Lexer) Parse() (*Statement, error) {
 		}
 
 		// step: if we have a previous token lets check the current token against the ruleset
-		if previous.ID != Unknown && !isToken(previous.ID, parsingRules[i.ID]) {
+		if lastToken.ID != Unknown && !isToken(lastToken.ID, parsingRules[i.ID]) {
 			// @TODO forcible stop the parser from continuing
-			return nil, fmt.Errorf("'%s' found at position: %d cannot follow '%s'", i.Value, i.Start, previous.Value)
+			return nil, fmt.Errorf("'%s' found at position: %d cannot follow '%s'", i.Value, i.Start, lastToken.Value)
 		}
 
 		// step: add the token the
 		switch i.ID {
 		case Entry:
-			current = new(Statement)
-			root = current
+			root = new(Statement)
+			current = root
 		case EOF:
 		case OpenStatement:
+			previous = current
 			current.Next = new(Statement)
-			current.Next.Prev = current
 			current = current.Next
 		case CloseStatement:
-			if current.Prev == nil {
+			if previous == nil {
 				return nil, fmt.Errorf("')' closed as position: %d was not opened", i.Start)
 			}
-			current = current.Prev
+			current, previous = previous, nil
 		case LogicalAnd:
-			current.LogicalAnd = true
+			switch lastToken.ID {
+			case CloseStatement:
+				current.LogicalAnd = true
+			case Match:
+				current.Last().LogicalAnd = true
+			}
 		case LogicalOr:
-			current.LogicalAnd = false
 		case Expr:
-			current.Add()
+			if current.getCurrentExpression().Selector != "" {
+				current.Add()
+			}
+			current.getCurrentExpression().Selector = i.Value
 		case Match:
-			current.Last().Match = i.Value
+			// step: are we supposed to be a regex?
+			switch lastToken.ID {
+			case LogicalLessThan:
+				fallthrough
+			case LogicalLessThanOrEqual:
+				fallthrough
+			case LogicalGreaterThan:
+				fallthrough
+			case LogicalGreaterThanOrEqual:
+				// step: the match MUST be numeric
+				v, err := strconv.ParseFloat(i.Value, 64)
+				if err != nil {
+					return nil, fmt.Errorf("value: %s at position: %d must be numeric when using less or greater than", i.Value, i.Start)
+				}
+				current.Last().Match = v
+			case LogicalRegex:
+				v, err := regexp.Compile(i.Value)
+				if err != nil {
+					return nil, fmt.Errorf("regex: '%s' at position: %d is invalid", i.Value, i.Start)
+				}
+				current.Last().Match = v
+			default:
+				current.Last().Match = i.Value
+			}
+		case LogicalRegex:
+			fallthrough
 		case LogicalEqual, LogicalInvert:
 			fallthrough
 		case LogicalGreaterThan, LogicalGreaterThanOrEqual:
@@ -112,10 +145,10 @@ func (l *Lexer) Parse() (*Statement, error) {
 		case LogicalLessThan, LogicalLessThanOrEqual:
 			current.Last().Operation = getOperation(i.ID)
 		default:
-			return nil, ErrInvalidExpression
+			panic("invalid token recieved")
 		}
 		// step: update the previous token
-		previous = i
+		lastToken = i
 	}
 
 	return root, nil

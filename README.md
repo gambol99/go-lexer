@@ -1,16 +1,3 @@
-***Go-Lexer***
-========
-
-Go-Lexer provides a generic library for parsing and evaluating expressions
-
-
-****Expressions****
-==========
-
-```shell
-(test == 1 || test > 25) && test_two =~ /regex/
-```
-
-****Operators****
-=======
-The following operators are supported when evaluating expressions
+[![Build Status](https://travis-ci.org/gambol99/go-lexer.svg?branch=wip)](https://travis-ci.org/gambol99/go-lexer)
+[![Coverage Status](https://coveralls.io/repos/github/gambol99/go-lexer/badge.svg?branch=master)](https://coveralls.io/github/gambol99/go-lexer?branch=master)
+[![GoDoc](http://godoc.org/github.com/gambol99/go-lexer?status.png)](http://godoc.org/github.com/gambol99/go-lexer)
