@@ -26,6 +26,38 @@ type Lexer struct {
 	input string
 }
 
+// ValueFn is the callback function used by the expression evaluation
+type ValueFn func(string) ([]interface{}, error)
+
+// OperationID is the expression operation
+type OperationID int
+
+// Expression is a lex expression
+type Expression struct {
+	// Selector is the expression selector
+	Selector string
+	// Operation is the expression operation
+	Operation OperationID
+	// Match is what the input is being compared to
+	Match interface{}
+	// LogicalAnd indicates a logical AND
+	LogicalAnd bool
+	// Next is the next statement
+	Next *Expression
+}
+
+// Statement is a collection of expressions
+type Statement struct {
+	// Expressions is a collection of expressions which group to make the statement
+	Expression *Expression
+	// LogicalAnd indicates a logical AND between statements
+	LogicalAnd bool
+	// Next is the next statement
+	Next *Statement
+	// Pres is the previous statement
+	Prev *Statement
+}
+
 // TokenID is the token type
 type TokenID int
 

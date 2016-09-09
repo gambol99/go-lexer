@@ -47,47 +47,118 @@ func TestParsingRulesBad(t *testing.T) {
 		Input string // is the input expression
 	}{
 		{Input: "test"},
-		{Input: "test == 1"},
+		{Input: "test == )"},
+		{Input: "test &&"},
+		{Input: "test & tes"},
+		{Input: "test ==1)"},
+		{Input: "(test > 5)==1"},
+		{Input: "()"},
+		{Input: "test != ()"},
+		{Input: "(test=1)(test=1)"},
+		{Input: "(test||1)"},
 	}
-	for i, c := range cs {
-		assert.Error(t, New(c.Input).Parse(), "case %d should have thrown an error", i)
+	for _, c := range cs {
+		st, err := New(c.Input).Parse()
+		assert.Nil(t, st)
+		assert.Error(t, err)
+	}
+}
+
+func TestLexParseOk(t *testing.T) {
+	cs := []struct {
+		Input  string
+		Output *Statement
+	}{
+		{
+			Input: "test == 1",
+			Output: &Statement{
+				Expression: &Expression{Selector: "test", Operation: EQ, Match: "1"},
+			},
+		},
+		{
+			Input: "test == 1 && test > 5",
+			Output: &Statement{
+				Expression: &Expression{
+					Selector:   "test",
+					Operation:  EQ,
+					Match:      "1",
+					LogicalAnd: true,
+					Next: &Expression{
+						Selector:  "test",
+						Operation: GT,
+						Match:     "5",
+					},
+				},
+			},
+		},
+		{
+			Input: "(test == 1 && test > 5) || test > 19",
+			Output: &Statement{
+				LogicalAnd: false,
+				Expression: &Expression{
+					Selector:  "test",
+					Operation: GT,
+					Match:     "19",
+				},
+				Next: &Statement{
+					Expression: &Expression{
+						Selector:   "test",
+						Operation:  EQ,
+						Match:      "1",
+						LogicalAnd: true,
+						Next: &Expression{
+							Selector:  "test",
+							Operation: GT,
+							Match:     "5",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, c := range cs {
+		st, err := New(c.Input).Parse()
+		assert.NotNil(t, st)
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
 	}
 }
 
 func TestIsTokenOk(t *testing.T) {
 	cs := []struct {
-		Token  Token
+		ID     TokenID
 		Filter []TokenID
 	}{
 		{
-			Token:  Token{ID: Expr},
-			Filter: []TokenID{Expr, OpenStatement},
+			ID:     Expr,
+			Filter: []TokenID{Expr, OpenStatement, Entry},
 		},
 		{
-			Token:  Token{ID: CloseStatement},
+			ID:     CloseStatement,
 			Filter: []TokenID{Expr, OpenStatement, Match, CloseStatement},
 		},
 	}
 	for i, c := range cs {
-		assert.True(t, isToken(c.Token, c.Filter), "case %d, should have been true", i)
+		assert.True(t, isToken(c.ID, c.Filter), "case %d, should have been true", i)
 	}
 }
 
 func TestIsTokenBad(t *testing.T) {
 	cs := []struct {
-		Token  Token
+		ID     TokenID
 		Filter []TokenID
 	}{
 		{
-			Token:  Token{ID: Expr},
+			ID:     Expr,
 			Filter: []TokenID{OpenStatement, Match, LogicalAnd},
 		},
 		{
-			Token:  Token{ID: CloseStatement},
+			ID:     CloseStatement,
 			Filter: []TokenID{Expr, OpenStatement, Match},
 		},
 	}
 	for i, c := range cs {
-		assert.False(t, isToken(c.Token, c.Filter), "case %d, should have been false", i)
+		assert.False(t, isToken(c.ID, c.Filter), "case %d, should have been false", i)
 	}
 }

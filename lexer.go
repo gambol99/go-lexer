@@ -28,7 +28,7 @@ var (
 	// parsingRules is the ruleset defined the ordering of tokens, i.e. only the following x come before token y
 	parsingRules = map[TokenID][]TokenID{
 		Entry:                     {},
-		OpenStatement:             {OpenStatement, CloseStatement, LogicalAnd, LogicalOr, Entry},
+		OpenStatement:             {OpenStatement, LogicalAnd, LogicalOr, Entry},
 		CloseStatement:            {CloseStatement, Match},
 		Expr:                      {OpenStatement, Entry, LogicalAnd, LogicalOr},
 		Match:                     {LogicalEqual, LogicalInvert, LogicalGreaterThan, LogicalGreaterThanOrEqual, LogicalLessThan, LogicalLessThanOrEqual},
@@ -39,8 +39,8 @@ var (
 		LogicalGreaterThanOrEqual: {Expr},
 		LogicalInvert:             {Expr},
 		LogicalRegex:              {Expr},
-		LogicalOr:                 {CloseStatement, Expr},
-		LogicalAnd:                {CloseStatement, Expr},
+		LogicalOr:                 {CloseStatement, Match},
+		LogicalAnd:                {CloseStatement, Match},
 		EOF:                       {Match, CloseStatement},
 	}
 )
@@ -63,8 +63,11 @@ func (l *Lexer) AddTokenListener(ch TokenChannel) *Lexer {
 }
 
 // Parse is responsible for parsing the input stream
-func (l *Lexer) Parse() error {
+func (l *Lexer) Parse() (*Statement, error) {
 	var previous Token // the previous token we got
+
+	var current *Statement // a reference to the current Statement
+	var root *Statement
 
 	// step: parse the input stream extracting the tokens and pass through the ruleset
 	for i := range newTokenizer(l.input) {
@@ -74,17 +77,48 @@ func (l *Lexer) Parse() error {
 		}
 
 		// step: if we have a previous token lets check the current token against the ruleset
-		if previous.ID != Unknown && !isToken(i, parsingRules[i.ID]) {
-			return fmt.Errorf("'%s' at position: %d cannot follow %s", i.Value, i.Start, previous.ID.String())
+		if previous.ID != Unknown && !isToken(previous.ID, parsingRules[i.ID]) {
+			// @TODO forcible stop the parser from continuing
+			return nil, fmt.Errorf("'%s' found at position: %d cannot follow '%s'", i.Value, i.Start, previous.Value)
 		}
 
 		// step: add the token the
-
+		switch i.ID {
+		case Entry:
+			current = new(Statement)
+			root = current
+		case EOF:
+		case OpenStatement:
+			current.Next = new(Statement)
+			current.Next.Prev = current
+			current = current.Next
+		case CloseStatement:
+			if current.Prev == nil {
+				return nil, fmt.Errorf("')' closed as position: %d was not opened", i.Start)
+			}
+			current = current.Prev
+		case LogicalAnd:
+			current.LogicalAnd = true
+		case LogicalOr:
+			current.LogicalAnd = false
+		case Expr:
+			current.Add()
+		case Match:
+			current.Last().Match = i.Value
+		case LogicalEqual, LogicalInvert:
+			fallthrough
+		case LogicalGreaterThan, LogicalGreaterThanOrEqual:
+			fallthrough
+		case LogicalLessThan, LogicalLessThanOrEqual:
+			current.Last().Operation = getOperation(i.ID)
+		default:
+			return nil, ErrInvalidExpression
+		}
 		// step: update the previous token
 		previous = i
 	}
 
-	return nil
+	return root, nil
 }
 
 // Evaluate is responsible for evaluating the expression
@@ -118,9 +152,9 @@ func validateExpression(e string) error {
 }
 
 // isToken checks the token is with a select group
-func isToken(token Token, filter []TokenID) bool {
+func isToken(id TokenID, filter []TokenID) bool {
 	for _, x := range filter {
-		if token.ID == x {
+		if id == x {
 			return true
 		}
 	}

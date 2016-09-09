@@ -17,7 +17,8 @@ limitations under the License.
 package lex
 
 const (
-	na OperationID = iota
+	// NA is an unknown operation
+	NA OperationID = iota
 	// EQ means equals to
 	EQ
 	// NE means not equal
@@ -68,18 +69,3 @@ const (
 	// LogicalGreaterThanOrEqual means greater than or equal
 	LogicalGreaterThanOrEqual
 )
-
-// OperationID is the expression operation
-type OperationID int
-
-// Expression is a lex expression
-type Expression struct {
-	// Selector is the expression selector
-	Selector string
-	// Operation is the expression operation
-	Operation OperationID
-	// Match is what the input is being compared to
-	Match interface{}
-}
-
-// Statement is a collection of expressions
