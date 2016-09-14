@@ -10,7 +10,7 @@ go:
 - 1.7
 script:
 - make all
-- if [[ TRAVIS_BRANCH == "master" ]]; then
+- if [[ "${TRAVIS_BRANCH}" == "master" ]]; then
     make coveralls;
     goveralls -service=travis-ci;
   fi
