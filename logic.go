@@ -1,5 +1,5 @@
 /*
-Copyright 2016 Rohith Jayawardene <gambol99@gmail.com>
+Copyright 2017 Rohith Jayawardene <gambol99@gmail.com>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,11 +16,18 @@ limitations under the License.
 
 package lex
 
-import "errors"
-
-var (
-	// ErrInvalidExpressionEqaulity means the expression match is invalid i.e. == >= etc
-	ErrInvalidExpressionEqaulity = errors.New("invalid expression equality")
-	// ErrInvalidExpression means the expression is invalid
-	ErrInvalidExpression = errors.New("invalid expression")
+const (
+	// LogicalTypeAnd indicates a AND operation
+	LogicalTypeAnd LogicType = 1
+	// LogicalTypeOr indicates a OR operation
+	LogicalTypeOr LogicType = 0
 )
+
+// String returns a string representaton of the logical operation
+func (l *LogicType) String() string {
+	if *l == LogicalTypeAnd {
+		return "&&"
+	}
+
+	return "||"
+}

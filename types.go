@@ -46,10 +46,10 @@ const (
 	Expr
 	// Match is a value to match the expression
 	Match
-	// OpenStatement is the start of a statement
-	OpenStatement
-	// CloseStatement is the end of a statement
-	CloseStatement
+	// OpenGroup is the start of a statement
+	OpenGroup
+	// CloseGroup is the end of a statement
+	CloseGroup
 	// LogicalAnd is a logical AND
 	LogicalAnd
 	// LogicalOr is a logical OR

@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStatementAddWhenEmpty(t *testing.T) {
-	st := new(Statement)
+func TestGroupAddWhenEmpty(t *testing.T) {
+	st := new(Group)
 	assert.Nil(t, st.Expression)
 	st.Add()
 	assert.NotNil(t, st.Expression)
@@ -32,27 +32,27 @@ func TestStatementAddWhenEmpty(t *testing.T) {
 }
 
 func TestGetCurrentExpression(t *testing.T) {
-	st := new(Statement)
+	st := new(Group)
 	assert.NotNil(t, st)
 	assert.Nil(t, st.Last())
-	assert.NotNil(t, st.getCurrentExpression())
+	assert.NotNil(t, st.Current())
 }
 
-func TestStatementAdd(t *testing.T) {
-	st := new(Statement)
+func TestGroupAdd(t *testing.T) {
+	st := new(Group)
 	st.Add()
 	assert.NotNil(t, st.Expression)
 	st.Add()
 	assert.NotNil(t, st.Expression.Next)
 }
 
-func TestStatementLastWhenEmpty(t *testing.T) {
-	st := new(Statement)
+func TestGroupLastWhenEmpty(t *testing.T) {
+	st := new(Group)
 	assert.Nil(t, st.Last())
 }
 
-func TestStatementLast(t *testing.T) {
-	st := new(Statement)
+func TestGroupLast(t *testing.T) {
+	st := new(Group)
 	assert.Nil(t, st.Last())
 	e := st.Add()
 	e.Match = "test"
@@ -60,20 +60,20 @@ func TestStatementLast(t *testing.T) {
 	assert.Equal(t, "test", st.Last().Match)
 }
 
-func TestStatementLastWithMany(t *testing.T) {
-	st := new(Statement)
+func TestGroupLastWithMany(t *testing.T) {
+	st := new(Group)
 	for i := 1; i <= 5; i++ {
 		st.Add().Match = fmt.Sprintf("test%d", i)
 	}
 	assert.Equal(t, "test5", st.Last().Match)
 }
 
-func TestStatementSizeWhenEmpty(t *testing.T) {
-	assert.Equal(t, 0, new(Statement).Size())
+func TestGroupSizeWhenEmpty(t *testing.T) {
+	assert.Equal(t, 0, new(Group).Size())
 }
 
-func TestStatementSize(t *testing.T) {
-	st := new(Statement)
+func TestGroupSize(t *testing.T) {
+	st := new(Group)
 	for i := 0; i < 5; i++ {
 		st.Add().Match = fmt.Sprintf("test%d", i)
 	}

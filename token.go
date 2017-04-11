@@ -18,11 +18,12 @@ package lex
 
 import "fmt"
 
+// String returns the string representaton of the token id type
 func (t TokenID) String() string {
 	switch t {
-	case OpenStatement:
+	case OpenGroup:
 		return "("
-	case CloseStatement:
+	case CloseGroup:
 		return ")"
 	case LogicalOr:
 		return "||"

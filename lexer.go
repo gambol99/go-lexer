@@ -20,18 +20,17 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 )
 
 var (
 	defaultExpr = regexp.MustCompile("")
 
-	// parsingRules is the ruleset defined the ordering of tokens, i.e. only the following x come before token y
+	// parsingRules is the ruleset defined the ordering of tokens, i.e. what can the token follow
 	parsingRules = map[TokenID][]TokenID{
 		Entry:                     {},
-		OpenStatement:             {OpenStatement, LogicalAnd, LogicalOr, Entry},
-		CloseStatement:            {CloseStatement, Match},
-		Expr:                      {OpenStatement, Entry, LogicalAnd, LogicalOr},
+		OpenGroup:                 {OpenGroup, LogicalAnd, LogicalOr, Entry},
+		CloseGroup:                {CloseGroup, Match},
+		Expr:                      {OpenGroup, Entry, LogicalAnd, LogicalOr},
 		Match:                     {LogicalEqual, LogicalInvert, LogicalGreaterThan, LogicalGreaterThanOrEqual, LogicalLessThan, LogicalLessThanOrEqual},
 		LogicalEqual:              {Expr},
 		LogicalLessThan:           {Expr},
@@ -40,15 +39,13 @@ var (
 		LogicalGreaterThanOrEqual: {Expr},
 		LogicalInvert:             {Expr},
 		LogicalRegex:              {Expr},
-		LogicalOr:                 {CloseStatement, Match},
-		LogicalAnd:                {CloseStatement, Match},
-		EOF:                       {Match, CloseStatement},
+		LogicalOr:                 {CloseGroup, Match},
+		LogicalAnd:                {CloseGroup, Match},
+		EOF:                       {Match, CloseGroup},
 	}
 )
 
-//
 // New is responsible for creating a new lexer
-//
 func New(input string) *Lexer {
 	return &Lexer{
 		input:    input,
@@ -57,60 +54,49 @@ func New(input string) *Lexer {
 	}
 }
 
-// AddTokenListener adds a listener to the streams of token produced by the parser
-func (l *Lexer) AddTokenListener(ch TokenChannel) *Lexer {
-	l.listener = append(l.listener, ch)
-	return l
-}
-
 // Parse is responsible for parsing the input stream
-func (l *Lexer) Parse() (*Statement, error) {
-	var lastToken Token // the previous token we got
+func (l *Lexer) Parse() (*Group, error) {
+	var lastToken Token          // the previous token we got
+	var previous, current *Group // a reference to the current Group
+	root := &Group{}
 
-	var previous, current *Statement // a reference to the current Statement
-	var root *Statement
-
-	// step: parse the input stream extracting the tokens and pass through the ruleset
 	for i := range newTokenizer(l.input) {
-		// step: do we have any listeners to the tokens?
 		if l.haveListeners() {
-			l.handleTokenListener(i)
+			l.emitTokenListener(i) // handle the token listeners
 		}
-
-		// step: if we have a previous token lets check the current token against the ruleset
-		if lastToken.ID != Unknown && !isToken(lastToken.ID, parsingRules[i.ID]) {
-			// @TODO forcible stop the parser from continuing
+		// step: if we have a previous token check against the ruleset
+		if lastToken.ID != Unknown && !validateTokenRules(lastToken.ID, parsingRules[i.ID]) {
 			return nil, fmt.Errorf("'%s' found at position: %d cannot follow '%s'", i.Value, i.Start, lastToken.Value)
 		}
 
 		// step: add the token the
 		switch i.ID {
 		case Entry:
-			root = new(Statement)
 			current = root
 		case EOF:
-		case OpenStatement:
+		case OpenGroup:
 			previous = current
-			current.Next = new(Statement)
+			current.Next = new(Group)
 			current = current.Next
-		case CloseStatement:
+		case CloseGroup:
 			if previous == nil {
 				return nil, fmt.Errorf("')' closed as position: %d was not opened", i.Start)
 			}
-			current, previous = previous, nil
+			current = previous
+			previous = nil
 		case LogicalAnd:
 			switch lastToken.ID {
-			case CloseStatement:
-				current.LogicalAnd = true
+			case CloseGroup:
+				current.Logic = LogicalTypeAnd
 			case Match:
-				current.Last().LogicalAnd = true
+				current.Last().Logic = LogicalTypeAnd
 			}
 		case LogicalOr:
 		case Expr:
-			if current.getCurrentExpression().Selector != "" {
+			if current.Current().Selector != "" {
 				current.Add()
 			}
-			current.getCurrentExpression().Selector = i.Value
+			current.Current().Selector = i.Value
 		case Match:
 			// step: are we supposed to be a regex?
 			switch lastToken.ID {
@@ -122,8 +108,8 @@ func (l *Lexer) Parse() (*Statement, error) {
 				fallthrough
 			case LogicalGreaterThanOrEqual:
 				// step: the match MUST be numeric
-				v, err := strconv.ParseFloat(i.Value, 64)
-				if err != nil {
+				found, v := parseIfFloat(i.Value)
+				if !found {
 					return nil, fmt.Errorf("value: %s at position: %d must be numeric when using less or greater than", i.Value, i.Start)
 				}
 				current.Last().Match = v
@@ -132,6 +118,10 @@ func (l *Lexer) Parse() (*Statement, error) {
 				if err != nil {
 					return nil, fmt.Errorf("regex: '%s' at position: %d is invalid", i.Value, i.Start)
 				}
+				current.Last().Match = v
+			case LogicalEqual:
+				// step: convert to float if numeric else leave as a string
+				_, v := parseIfFloat(i.Value)
 				current.Last().Match = v
 			default:
 				current.Last().Match = i.Value
@@ -161,22 +151,27 @@ func (l *Lexer) Evaluate() error {
 	return nil
 }
 
+// AddListener adds a listener to the streams of token produced by the parser
+func (l *Lexer) AddListener(ch TokenChannel) *Lexer {
+	l.listener = append(l.listener, ch)
+	return l
+}
+
 // haveListeners checks if we have token listeners
 func (l *Lexer) haveListeners() bool {
 	return len(l.listener) > 0
 }
 
-// handleTokenListener is responsible for forwarding the tokens to the listeners
-func (l *Lexer) handleTokenListener(token Token) {
+// emitTokenListener is responsible for forwarding the tokens to the listeners
+func (l *Lexer) emitTokenListener(token Token) {
 	for _, ch := range l.listener {
-		// step: we don't allow the listener to block us
 		go func(c TokenChannel) {
 			c <- token
 		}(ch)
 	}
 }
 
-// the default validation function for an expression
+// validateExpression is the default validation function for an expression
 func validateExpression(e string) error {
 	if !defaultExpr.MatchString(e) {
 		return errors.New("invalid expression")
@@ -184,8 +179,8 @@ func validateExpression(e string) error {
 	return nil
 }
 
-// isToken checks the token is with a select group
-func isToken(id TokenID, filter []TokenID) bool {
+// validateTokenRules checks a token complies with the ruleset
+func validateTokenRules(id TokenID, filter []TokenID) bool {
 	for _, x := range filter {
 		if id == x {
 			return true

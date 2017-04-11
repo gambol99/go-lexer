@@ -30,7 +30,7 @@ func TestNewLexer(t *testing.T) {
 func TestAddTokenListener(t *testing.T) {
 	l := New("test == 1")
 	assert.Empty(t, l.listener)
-	l.AddTokenListener(make(TokenChannel, 0))
+	l.AddListener(make(TokenChannel, 0))
 	assert.NotEmpty(t, l.listener)
 	assert.Equal(t, 1, len(l.listener))
 }
@@ -39,7 +39,7 @@ func TestHasListeners(t *testing.T) {
 	l := New("test == 1")
 	assert.NotNil(t, l)
 	assert.False(t, l.haveListeners())
-	l.AddTokenListener(make(TokenChannel, 0))
+	l.AddListener(make(TokenChannel, 0))
 	assert.True(t, l.haveListeners())
 }
 
@@ -88,22 +88,30 @@ func TestParseBad(t *testing.T) {
 func TestParseOk(t *testing.T) {
 	cs := []struct {
 		Input  string
-		Output *Statement
+		Output *Group
 	}{
 		{
+			Input: "(test == 1)",
+			Output: &Group{
+				Next: &Group{
+					Expression: &Expression{Selector: "test", Operation: EQ, Match: 1.0},
+				},
+			},
+		},
+		{
 			Input: "test == 1",
-			Output: &Statement{
-				Expression: &Expression{Selector: "test", Operation: EQ, Match: "1"},
+			Output: &Group{
+				Expression: &Expression{Selector: "test", Operation: EQ, Match: 1.0},
 			},
 		},
 		{
 			Input: "test == 1 && test > 5",
-			Output: &Statement{
+			Output: &Group{
 				Expression: &Expression{
-					Selector:   "test",
-					Operation:  EQ,
-					Match:      "1",
-					LogicalAnd: true,
+					Selector:  "test",
+					Operation: EQ,
+					Match:     1.0,
+					Logic:     LogicalTypeAnd,
 					Next: &Expression{
 						Selector:  "test",
 						Operation: GT,
@@ -113,24 +121,68 @@ func TestParseOk(t *testing.T) {
 			},
 		},
 		{
-			Input: "(test == 1 && test > 5) || test > 19",
-			Output: &Statement{
-				LogicalAnd: false,
+			Input: "test == 1 && test > 5 || test > 19",
+			Output: &Group{
+				Logic: LogicalTypeOr,
 				Expression: &Expression{
 					Selector:  "test",
-					Operation: GT,
+					Operation: EQ,
+					Match:     1.0,
+					Logic:     LogicalTypeAnd,
+					Next: &Expression{
+						Selector:  "test",
+						Operation: GT,
+						Match:     5.0,
+						Logic:     LogicalTypeOr,
+						Next: &Expression{
+							Selector:  "test",
+							Operation: GT,
+							Match:     19.0,
+						},
+					},
+				},
+			},
+		},
+		{
+			Input: "(test == 1 || test > 5) && test >= 19",
+			Output: &Group{
+				Expression: &Expression{
+					Selector:  "test",
+					Operation: GTE,
 					Match:     19.0,
 				},
-				Next: &Statement{
+				Logic: LogicalTypeAnd,
+				Next: &Group{
 					Expression: &Expression{
-						Selector:   "test",
-						Operation:  EQ,
-						Match:      "1",
-						LogicalAnd: true,
+						Selector:  "test",
+						Operation: EQ,
+						Match:     1.0,
+						Logic:     LogicalTypeOr,
 						Next: &Expression{
 							Selector:  "test",
 							Operation: GT,
 							Match:     5.0,
+						},
+					},
+				},
+			},
+		},
+		{
+			//Input: "(test==1)||(test>0)||(test>=8 && test2 != 0)",
+			Input: "(test==2)||(test>0)",
+			Output: &Group{
+				Next: &Group{
+					Expression: &Expression{
+						Selector:  "test",
+						Operation: EQ,
+						Match:     2.0,
+					},
+					Logic: LogicalTypeOr,
+					Next: &Group{
+						Expression: &Expression{
+							Selector:  "test",
+							Operation: GT,
+							Match:     0.0,
 						},
 					},
 				},
@@ -145,12 +197,12 @@ func TestParseOk(t *testing.T) {
 func TestParseWithRegex(t *testing.T) {
 	cs := []struct {
 		Input  string
-		Output *Statement
+		Output *Group
 	}{
 		{
 			Input: "test == 1",
-			Output: &Statement{
-				Expression: &Expression{Selector: "test", Operation: EQ, Match: "1"},
+			Output: &Group{
+				Expression: &Expression{Selector: "test", Operation: EQ, Match: 1.0},
 			},
 		},
 	}
@@ -166,15 +218,15 @@ func TestIsTokenOk(t *testing.T) {
 	}{
 		{
 			ID:     Expr,
-			Filter: []TokenID{Expr, OpenStatement, Entry},
+			Filter: []TokenID{Expr, OpenGroup, Entry},
 		},
 		{
-			ID:     CloseStatement,
-			Filter: []TokenID{Expr, OpenStatement, Match, CloseStatement},
+			ID:     CloseGroup,
+			Filter: []TokenID{Expr, OpenGroup, Match, CloseGroup},
 		},
 	}
 	for i, c := range cs {
-		assert.True(t, isToken(c.ID, c.Filter), "case %d, should have been true", i)
+		assert.True(t, validateTokenRules(c.ID, c.Filter), "case %d, should have been true", i)
 	}
 }
 
@@ -185,19 +237,19 @@ func TestIsTokenBad(t *testing.T) {
 	}{
 		{
 			ID:     Expr,
-			Filter: []TokenID{OpenStatement, Match, LogicalAnd},
+			Filter: []TokenID{OpenGroup, Match, LogicalAnd},
 		},
 		{
-			ID:     CloseStatement,
-			Filter: []TokenID{Expr, OpenStatement, Match},
+			ID:     CloseGroup,
+			Filter: []TokenID{Expr, OpenGroup, Match},
 		},
 	}
 	for i, c := range cs {
-		assert.False(t, isToken(c.ID, c.Filter), "case %d, should have been false", i)
+		assert.False(t, validateTokenRules(c.ID, c.Filter), "case %d, should have been false", i)
 	}
 }
 
-func checkLexParse(t *testing.T, cs int, input string, expected *Statement) {
+func checkLexParse(t *testing.T, cs int, input string, expected *Group) {
 	actual, err := New(input).Parse()
 	if err != nil {
 		t.Errorf("case %d should not have returned an error, err: %s", cs, err)

@@ -1,12 +1,11 @@
 NAME=go-lexer
 AUTHOR=gambol99
 ROOT_DIR=${PWD}
-GOVERSION=1.7.1
+GO_VERSION=1.8.1
 GIT_SHA=$(shell git --no-pager describe --always --dirty)
 DEPS=$(shell go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
-PACKAGES=$(shell go list ./...)
 LFLAGS ?= -X main.gitsha=${GIT_SHA}
-VETARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -shift -structtags -unsafeptr
+VET_ARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -shift -structtags -unsafeptr
 
 .PHONY: test authors lint cover vet
 
@@ -18,8 +17,8 @@ golang:
 
 docker-test:
 	@echo "--> Compiling the project"
-	${SUDO} docker run --rm -v ${ROOT_DIR}:/go/src/github.com/${AUTHOR}/${NAME} \
-		-w /go/src/github.com/${AUTHOR}/${NAME} golang:${GOVERSION} make test
+	docker run --rm -v ${ROOT_DIR}:/go/src/github.com/${AUTHOR}/${NAME} \
+		-w /go/src/github.com/${AUTHOR}/${NAME} golang:${GO_VERSION} make test
 
 authors:
 	@echo "--> Updating the AUTHORS"
@@ -35,7 +34,7 @@ vet:
 	@go tool vet 2>/dev/null ; if [ $$? -eq 3 ]; then \
 		go get golang.org/x/tools/cmd/vet; \
 	fi
-	@go tool vet $(VETARGS) *.go
+	@go tool vet $(VET_ARGS) *.go
 
 lint:
 	@echo "--> Running golint"

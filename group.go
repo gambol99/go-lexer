@@ -7,7 +7,7 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
+ required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -17,7 +17,7 @@ limitations under the License.
 package lex
 
 // Add adds an expression to the statement
-func (s *Statement) Add() *Expression {
+func (s *Group) Add() *Expression {
 	if s.Expression == nil {
 		s.Expression = new(Expression)
 		return s.Expression
@@ -29,8 +29,8 @@ func (s *Statement) Add() *Expression {
 	return expr.Next
 }
 
-// getCurrentExpression will get the last expression or add one
-func (s *Statement) getCurrentExpression() *Expression {
+// Current will get the last expression or add one
+func (s *Group) Current() *Expression {
 	e := s.Last()
 	if e == nil {
 		return s.Add()
@@ -39,8 +39,8 @@ func (s *Statement) getCurrentExpression() *Expression {
 	return e
 }
 
-// Last gets the last expression in the statement
-func (s *Statement) Last() *Expression {
+// Last gets the last expression in the group
+func (s *Group) Last() *Expression {
 	if s.Expression == nil {
 		return nil
 	}
@@ -52,8 +52,8 @@ func (s *Statement) Last() *Expression {
 	return cur
 }
 
-// Size gets the number of expressions in the statement
-func (s *Statement) Size() int {
+// Size gets the number of expressions in the group
+func (s *Group) Size() int {
 	count := 0
 	for cur := s.Expression; cur != nil; {
 		count++

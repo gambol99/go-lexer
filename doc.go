@@ -1,5 +1,5 @@
 /*
-Copyright 2016 Rohith Jayawardene <gambol99@gmail.com>
+Copyright 2017 Rohith Jayawardene <gambol99@gmail.com>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ limitations under the License.
 
 package lex
 
-// Lexer is the lex parser
+// Lexer is actual parser
 type Lexer struct {
 	// a list of token channels use to send token ok
 	listener []TokenChannel
@@ -32,6 +32,9 @@ type ValueFn func(string) ([]interface{}, error)
 // OperationID is the expression operation
 type OperationID int
 
+// LogicType is a logical operation type, i.e. AND or OR
+type LogicType int
+
 // Expression is a lex expression
 type Expression struct {
 	// Selector is the expression selector
@@ -40,20 +43,20 @@ type Expression struct {
 	Operation OperationID
 	// Match is what the input is being compared to
 	Match interface{}
-	// LogicalAnd indicates a logical AND
-	LogicalAnd bool
+	// Logic indicates a logical operation
+	Logic LogicType
 	// Next is the next statement
 	Next *Expression
 }
 
-// Statement is a collection of expressions
-type Statement struct {
+// Group is a collection of expressions
+type Group struct {
 	// Expressions is a collection of expressions which group to make the statement
 	Expression *Expression
-	// LogicalAnd indicates a logical AND between statements
-	LogicalAnd bool
+	// Logic indicates a logical operation between groups
+	Logic LogicType
 	// Next is the next statement
-	Next *Statement
+	Next *Group
 }
 
 // TokenID is the token type

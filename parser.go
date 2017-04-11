@@ -32,7 +32,7 @@ type tokenizer struct {
 
 type tokenFn func(*tokenizer) tokenFn
 
-// newTokenizer creates a new tokenizer and starts extract tokens from the input
+// newTokenizer creates a tokenizer and starts extract tokens from the input
 // sending along the channel
 func newTokenizer(input string) TokenChannel {
 	t := &tokenizer{
@@ -185,7 +185,7 @@ func insideRegex(l *tokenizer) tokenFn {
 }
 
 func insideLeftBracket(l *tokenizer) tokenFn {
-	l.emit(OpenStatement)
+	l.emit(OpenGroup)
 
 	return insideExpression
 }
@@ -196,7 +196,7 @@ func insideRightBracket(l *tokenizer) tokenFn {
 		l.emit(Expr)
 		l.ignore()
 	}
-	l.emit(CloseStatement)
+	l.emit(CloseGroup)
 
 	return insideExpression
 }

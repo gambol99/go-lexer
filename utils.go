@@ -15,3 +15,19 @@ limitations under the License.
 */
 
 package lex
+
+import (
+	"strconv"
+	"strings"
+)
+
+// parseIfFloat attempts to parse to a float or returns the input
+func parseIfFloat(in string) (bool, interface{}) {
+	v, err := strconv.ParseFloat(in, 64)
+	if err != nil {
+		// step: remove any double quotes
+		return false, strings.Trim(in, "\"")
+	}
+
+	return true, v
+}
