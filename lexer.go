@@ -1,5 +1,5 @@
 /*
-Copyright 2016 Rohith Jayawardene <gambol99@gmail.com>
+Copyright 2017 Rohith Jayawardene <gambol99@gmail.com>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,21 +27,21 @@ var (
 
 	// parsingRules is the ruleset defined the ordering of tokens, i.e. what can the token follow
 	parsingRules = map[TokenID][]TokenID{
-		Entry:                     {},
-		OpenGroup:                 {OpenGroup, LogicalAnd, LogicalOr, Entry},
 		CloseGroup:                {CloseGroup, Match},
+		Entry:                     {},
+		EOF:                       {Match, CloseGroup},
 		Expr:                      {OpenGroup, Entry, LogicalAnd, LogicalOr},
-		Match:                     {LogicalEqual, LogicalInvert, LogicalGreaterThan, LogicalGreaterThanOrEqual, LogicalLessThan, LogicalLessThanOrEqual},
+		LogicalAnd:                {CloseGroup, Match},
 		LogicalEqual:              {Expr},
-		LogicalLessThan:           {Expr},
-		LogicalLessThanOrEqual:    {Expr},
 		LogicalGreaterThan:        {Expr},
 		LogicalGreaterThanOrEqual: {Expr},
 		LogicalInvert:             {Expr},
-		LogicalRegex:              {Expr},
+		LogicalLessThan:           {Expr},
+		LogicalLessThanOrEqual:    {Expr},
 		LogicalOr:                 {CloseGroup, Match},
-		LogicalAnd:                {CloseGroup, Match},
-		EOF:                       {Match, CloseGroup},
+		LogicalRegex:              {Expr},
+		Match:                     {LogicalEqual, LogicalInvert, LogicalGreaterThan, LogicalGreaterThanOrEqual, LogicalLessThan, LogicalLessThanOrEqual},
+		OpenGroup:                 {OpenGroup, LogicalAnd, LogicalOr, Entry},
 	}
 )
 
@@ -56,49 +56,54 @@ func New(input string) *Lexer {
 
 // Parse is responsible for parsing the input stream
 func (l *Lexer) Parse() (*Group, error) {
-	var lastToken Token          // the previous token we got
-	var previous, current *Group // a reference to the current Group
-	root := &Group{}
+	var lastToken Token // the previous token we got
+	var p, c *Group     // a reference to the current Group
 
+	root := new(Group)
 	for i := range newTokenizer(l.input) {
-		if l.haveListeners() {
-			l.emitTokenListener(i) // handle the token listeners
+		// emit the token to any listeners
+		l.emitTokenListener(i)
+		// if we have a previous token check against the ruleset
+		if lastToken.ID != Unknown {
+			if !validateTokenRules(lastToken.ID, parsingRules[i.ID]) {
+				return nil, fmt.Errorf("'%s' found at position: %d cannot follow '%s'", i.Value, i.Start, lastToken.Value)
+			}
 		}
-		// step: if we have a previous token check against the ruleset
-		if lastToken.ID != Unknown && !validateTokenRules(lastToken.ID, parsingRules[i.ID]) {
-			return nil, fmt.Errorf("'%s' found at position: %d cannot follow '%s'", i.Value, i.Start, lastToken.Value)
-		}
-
-		// step: add the token the
+		// parse the token
 		switch i.ID {
 		case Entry:
-			current = root
+			c = root
 		case EOF:
 		case OpenGroup:
-			previous = current
-			current.Next = new(Group)
-			current = current.Next
+			p = c
+			ng := new(Group)
+			switch c.Next {
+			case nil:
+				c.Next = ng
+			default:
+				c.Next.Next = ng
+			}
+			c = ng
 		case CloseGroup:
-			if previous == nil {
+			if p == nil {
 				return nil, fmt.Errorf("')' closed as position: %d was not opened", i.Start)
 			}
-			current = previous
-			previous = nil
+			c = p
+			p = nil
 		case LogicalAnd:
 			switch lastToken.ID {
 			case CloseGroup:
-				current.Logic = LogicalTypeAnd
+				c.Logic = LogicalTypeAnd
 			case Match:
-				current.Last().Logic = LogicalTypeAnd
+				c.Last().Logic = LogicalTypeAnd
 			}
 		case LogicalOr:
 		case Expr:
-			if current.Current().Selector != "" {
-				current.Add()
+			if c.Current().Selector != "" {
+				c.Add()
 			}
-			current.Current().Selector = i.Value
+			c.Current().Selector = i.Value
 		case Match:
-			// step: are we supposed to be a regex?
 			switch lastToken.ID {
 			case LogicalLessThan:
 				fallthrough
@@ -107,24 +112,24 @@ func (l *Lexer) Parse() (*Group, error) {
 			case LogicalGreaterThan:
 				fallthrough
 			case LogicalGreaterThanOrEqual:
-				// step: the match MUST be numeric
+				// the match MUST be numeric
 				found, v := parseIfFloat(i.Value)
 				if !found {
 					return nil, fmt.Errorf("value: %s at position: %d must be numeric when using less or greater than", i.Value, i.Start)
 				}
-				current.Last().Match = v
+				c.Last().Match = v
 			case LogicalRegex:
 				v, err := regexp.Compile(i.Value)
 				if err != nil {
 					return nil, fmt.Errorf("regex: '%s' at position: %d is invalid", i.Value, i.Start)
 				}
-				current.Last().Match = v
+				c.Last().Match = v
 			case LogicalEqual:
 				// step: convert to float if numeric else leave as a string
 				_, v := parseIfFloat(i.Value)
-				current.Last().Match = v
+				c.Last().Match = v
 			default:
-				current.Last().Match = i.Value
+				c.Last().Match = i.Value
 			}
 		case LogicalRegex:
 			fallthrough
@@ -133,12 +138,11 @@ func (l *Lexer) Parse() (*Group, error) {
 		case LogicalGreaterThan, LogicalGreaterThanOrEqual:
 			fallthrough
 		case LogicalLessThan, LogicalLessThanOrEqual:
-			current.Last().Operation = getOperation(i.ID)
+			c.Last().Operation = getOperation(i.ID)
 		default:
 			panic("invalid token recieved")
 		}
-		// step: update the previous token
-		lastToken = i
+		lastToken = i // update the p token
 	}
 
 	return root, nil
@@ -146,7 +150,6 @@ func (l *Lexer) Parse() (*Group, error) {
 
 // Evaluate is responsible for evaluating the expression
 func (l *Lexer) Evaluate() error {
-	// step: we create a
 
 	return nil
 }
@@ -155,11 +158,6 @@ func (l *Lexer) Evaluate() error {
 func (l *Lexer) AddListener(ch TokenChannel) *Lexer {
 	l.listener = append(l.listener, ch)
 	return l
-}
-
-// haveListeners checks if we have token listeners
-func (l *Lexer) haveListeners() bool {
-	return len(l.listener) > 0
 }
 
 // emitTokenListener is responsible for forwarding the tokens to the listeners

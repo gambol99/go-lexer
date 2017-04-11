@@ -35,14 +35,6 @@ func TestAddTokenListener(t *testing.T) {
 	assert.Equal(t, 1, len(l.listener))
 }
 
-func TestHasListeners(t *testing.T) {
-	l := New("test == 1")
-	assert.NotNil(t, l)
-	assert.False(t, l.haveListeners())
-	l.AddListener(make(TokenChannel, 0))
-	assert.True(t, l.haveListeners())
-}
-
 func TestParseRulesBad(t *testing.T) {
 	cs := []struct {
 		Input string // is the input expression
@@ -168,16 +160,49 @@ func TestParseOk(t *testing.T) {
 			},
 		},
 		{
-			//Input: "(test==1)||(test>0)||(test>=8 && test2 != 0)",
-			Input: "(test==2)||(test>0)",
+			Input: "test==2||test>0",
 			Output: &Group{
+				Expression: &Expression{
+					Selector:  "test",
+					Operation: EQ,
+					Match:     2.0,
+					Logic:     LogicalTypeOr,
+					Next: &Expression{
+						Selector:  "test",
+						Operation: GT,
+						Match:     0.0,
+					},
+				},
+			},
+		},
+		{
+			Input: "(test==2)||test>0",
+			Output: &Group{
+				Expression: &Expression{
+					Selector:  "test",
+					Operation: GT,
+					Match:     0.0,
+				},
+				Logic: LogicalTypeOr,
 				Next: &Group{
 					Expression: &Expression{
 						Selector:  "test",
 						Operation: EQ,
 						Match:     2.0,
 					},
-					Logic: LogicalTypeOr,
+				},
+			},
+		},
+		{
+			Input: "(test==2)&&(test>0)",
+			Output: &Group{
+				Logic: LogicalTypeAnd,
+				Next: &Group{
+					Expression: &Expression{
+						Selector:  "test",
+						Operation: EQ,
+						Match:     2.0,
+					},
 					Next: &Group{
 						Expression: &Expression{
 							Selector:  "test",
